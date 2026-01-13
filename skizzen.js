@@ -3,7 +3,7 @@
    - Versions: subcollection "versions"
    - uploadedBy: Auth-ready (falls login vorhanden), sonst Fallback "für Sandritter"
 */
-
+console.log("✅ skizzen.js geladen");
 const firebaseConfig = {
   apiKey: "AIzaSyBpEwbSZgs3agOf48j5FU91Yx-r1__HF6A",
   authDomain: "foodtec26.firebaseapp.com",
