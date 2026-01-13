@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FoodTec – BV Liste</title>
+  <meta name="theme-color" content="#050b12" />
+
+  <style>
+    :root{
+      --bg:#050b12;
+      --panel:#0f1724;
+      --card:#0e1622;
+      --border:#1c2a3b;
+      --text:#f5f7fb;
+      --muted:#a2afc5;
+      --accent:#2b78e4;
+      --good:#45c86a;
+      --warn:#f1c40f;
+      --bad:#e74a4a;
+      --radius:18px;
+      --shadow: 0 14px 40px rgba(0,0,0,.35);
+      --font: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background: radial-gradient(1200px 700px at 20% -10%, #0d1a33 0%, var(--bg) 60%);
+      min-height:100vh;
+    }
+    header{
+      padding:18px 16px 10px;
+      position:sticky; top:0;
+      backdrop-filter: blur(10px);
+      background: rgba(5,11,18,.72);
+      border-bottom:1px solid rgba(28,42,59,.6);
+      z-index:10;
+    }
+    .title{font-size:22px; font-weight:800; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:13px; margin-top:4px}
+
+    .wrap{padding:14px 16px 28px; max-width:820px; margin:0 auto;}
+    .toolbar{
+      display:flex; gap:10px; align-items:center; margin:12px 0 14px;
+    }
+    .search{
+      flex:1;
+      background: rgba(15,23,36,.75);
+      border:1px solid rgba(28,42,59,.8);
+      color:var(--text);
+      padding:12px 14px;
+      border-radius:14px;
+      outline:none;
+    }
+    .btn{
+      border:none;
+      background: var(--accent);
+      color:white;
+      padding:12px 14px;
+      border-radius:14px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow: 0 10px 22px rgba(43,120,228,.25);
+      white-space:nowrap;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(17,28,43,.9), rgba(14,22,34,.9));
+      border:1px solid rgba(28,42,59,.9);
+      border-radius: var(--radius);
+      padding:14px 14px 12px;
+      box-shadow: var(--shadow);
+      cursor:pointer;
+    }
+    .row{display:flex; align-items:flex-start; gap:12px;}
+    .dot{
+      width:12px; height:12px; border-radius:50%;
+      margin-top:4px;
+      background: var(--warn);
+      box-shadow: 0 0 0 4px rgba(241,196,15,.12);
+      flex:0 0 auto;
+    }
+    .name{
+      font-size:17px;
+      font-weight:900;
+      margin:0;
+      line-height:1.15;
+    }
+    .meta{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(28,42,59,.9);
+      background: rgba(15,23,36,.65);
+      font-weight:700;
+      color: var(--text);
+    }
+    .pill small{color:var(--muted); font-weight:700}
+    .footerNote{
+      margin-top:16px;
+      color:var(--muted);
+      font-size:12px;
+      opacity:.9;
+    }
+
+    .empty, .error{
+      background: rgba(15,23,36,.65);
+      border:1px solid rgba(28,42,59,.9);
+      border-radius: var(--radius);
+      padding:14px;
+      color:var(--muted);
+    }
+    .error{color:#ffd2d2; border-color: rgba(231,74,74,.55)}
+    code{color:#d7e7ff}
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap" style="padding:0 16px;">
+      <div class="title">FoodTec – BV Liste</div>
+      <div class="sub">Live aus Firestore (read-only)</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="toolbar">
+      <input id="q" class="search" placeholder="BV suchen (z.B. Sandritter) …" />
+      <button class="btn" id="reload">↻ Aktualisieren</button>
+    </div>
+
+    <div id="msg"></div>
+    <div class="grid" id="list"></div>
+
+    <div class="footerNote">
+      Tipp: Tippen auf eine BV ist vorbereitet – Detailseite bauen wir als Nächstes. 😉
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // 🔑 Firebase Config (dein Projekt)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBpEwbSZgs3ag0f48j5FU91Yx-r1__HF6A",
+      authDomain: "foodtec26.firebaseapp.com",
+      projectId: "foodtec26",
+      storageBucket: "foodtec26.firebasestorage.app",
+      messagingSenderId: "227220894528",
+      appId: "1:227220894528:web:2588691a45dee930ee00a5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const listEl = document.getElementById("list");
+    const msgEl  = document.getElementById("msg");
+    const qEl    = document.getElementById("q");
+    const reload = document.getElementById("reload");
+
+    // Status -> Anzeige
+    function statusUI(status){
+      const s = (status || "open").toLowerCase();
+      if (s === "done")   return { label:"Erledigt", dot:"var(--good)", glow:"rgba(69,200,106,.12)" };
+      if (s === "running")return { label:"Läuft",    dot:"var(--warn)", glow:"rgba(241,196,15,.12)" };
+      return              { label:"Offen",   dot:"var(--bad)",  glow:"rgba(231,74,74,.12)" };
+    }
+
+    function setMessage(kind, html){
+      msgEl.innerHTML = html ? `<div class="${kind}">${html}</div>` : "";
+    }
+
+    function render(items){
+      listEl.innerHTML = "";
+      if (!items.length){
+        setMessage("empty", "Noch keine BVs gefunden. (Aktuell: <code>bvs/bv_sandritter</code>)");
+        return;
+      }
+      setMessage("", "");
+
+      for (const it of items){
+        const ui = statusUI(it.status);
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="row">
+            <div class="dot" style="background:${ui.dot}; box-shadow:0 0 0 4px ${ui.glow};"></div>
+            <div style="flex:1;">
+              <p class="name">${escapeHtml(it.name || it.id)}</p>
+              <div class="meta">
+                <span class="pill">Status: <small>${ui.label}</small></span>
+                <span class="pill">ID: <small>${escapeHtml(it.id)}</small></span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Vorbereitung für BV-Detail (kommt als nächster Schritt)
+      card.addEventListener("click", () => {
+  location.href = "bv.html?id=" + encodeURIComponent(it.id);
+});
+
+        listEl.appendChild(card);
+      }
+    }
+
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    async function load(){
+      setMessage("empty", "⏳ Lade BVs…");
+      listEl.innerHTML = "";
+
+      try{
+        const snap = await getDocs(collection(db, "bvs"));
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // Suche (client-seitig)
+        const q = (qEl.value || "").trim().toLowerCase();
+        const filtered = q
+          ? items.filter(x => (x.name || x.id || "").toLowerCase().includes(q))
+          : items;
+
+        // Sort: nach Name
+        filtered.sort((a,b) => (a.name||a.id).localeCompare(b.name||b.id, "de"));
+
+        render(filtered);
+      }catch(err){
+        console.error(err);
+        setMessage("error",
+          `❌ Fehler beim Lesen aus Firestore.<br/>
+           <small>${escapeHtml(err.message)}</small><br/><br/>
+           Check: Firestore-Regeln müssen <code>read: true</code> für <code>bvs</code> erlauben.`
+        );
+      }
+    }
+
+    qEl.addEventListener("input", () => load());
+    reload.addEventListener("click", () => load());
+
+    load();
+  </script>
+</body>
+</html>
