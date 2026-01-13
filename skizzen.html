@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FoodTec – Skizzen</title>
+
+  <!-- Optional: deine globale App-CSS -->
+  <link rel="stylesheet" href="./style.css" />
+
+  <style>
+    /* Fallback-Styles (falls style.css fehlt) – bewusst schlicht */
+    :root{
+      --bg:#050b12; --panel:#0f1724; --panel2:#111c2b; --card:#0e1622;
+      --border:#1c2a3b; --text:#f5f7fb; --muted:#a2afc5; --accent:#2b78e4;
+      --good:#45c86a; --bad:#e74a4a; --warn:#f1c40f; --radius:18px;
+      --shadow:0 14px 40px rgba(0,0,0,.35);
+      --font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--font);background:radial-gradient(1200px 700px at 25% -10%, #14325a 0%, rgba(20,50,90,0) 55%), var(--bg);color:var(--text)}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    .topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+    .pill{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:rgba(15,23,36,.7);backdrop-filter:blur(8px)}
+    .dot{width:10px;height:10px;border-radius:999px;background:var(--bad)}
+    .dot.ok{background:var(--good)}
+    .btn{border:0;background:var(--accent);color:white;padding:10px 14px;border-radius:14px;font-weight:700;cursor:pointer;box-shadow:var(--shadow)}
+    .btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text);box-shadow:none}
+    .btn.danger{background:transparent;border:1px solid rgba(231,74,74,.5);color:#ffbdbd}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg, rgba(17,28,43,.85), rgba(14,22,34,.85));border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card-h{display:flex;justify-content:space-between;align-items:center;padding:14px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .card-h h2{margin:0;font-size:18px}
+    .card-b{padding:14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    .in{width:100%;padding:12px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(7,12,18,.55);color:var(--text);outline:none}
+    textarea.in{min-height:96px;resize:vertical}
+    .list{display:flex;flex-direction:column;gap:10px;max-height:380px;overflow:auto;padding-right:2px}
+    .item{border:1px solid rgba(255,255,255,.08);background:rgba(5,11,18,.35);border-radius:16px;padding:12px;cursor:pointer}
+    .item.active{outline:2px solid rgba(69,200,106,.5)}
+    .item .t{font-weight:800}
+    .item .s{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;margin-top:4px}
+    .hr{height:1px;background:rgba(255,255,255,.06);margin:14px 0}
+    .tag{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--muted)}
+    .preview{
+      width:100%;
+      aspect-ratio: 4/5;
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      overflow:hidden;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .preview img{max-width:100%;max-height:100%;display:block}
+    .versions{display:flex;flex-direction:column;gap:10px}
+    .ver{border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px;background:rgba(5,11,18,.3)}
+    .ver .top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .ver .meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:12px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;opacity:.9}
+    .link{color:#b8d3ff;text-decoration:none}
+    .link:hover{text-decoration:underline}
+
+    /* Modal */
+    .modal{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.62);backdrop-filter:blur(8px);padding:14px;z-index:50;
+    }
+    .modal.open{display:flex}
+    .modal-card{
+      width:min(980px, 100%);
+      background:linear-gradient(180deg, rgba(17,28,43,.95), rgba(14,22,34,.95));
+      border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;
+    }
+    .modal-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .modal-h .ttl{display:flex;gap:10px;align-items:center;font-weight:900}
+    .modal-b{padding:14px}
+    .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .tool{padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(5,11,18,.35);color:var(--text);cursor:pointer;font-weight:800}
+    .tool.active{outline:2px solid rgba(43,120,228,.55)}
+    canvas{touch-action:none}
+    .canvasWrap{
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      background:rgba(0,0,0,.18);
+      overflow:hidden;
+    }
+  </style>
+
+  <!-- Firebase v8 compat -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- Top Status -->
+    <div class="topbar">
+      <div class="pill"><span class="dot" id="dot"></span><b id="connTxt">Verbinden…</b></div>
+      <div class="pill">BV: <b id="bvName">Sandritter</b></div>
+      <div class="pill">Fallback: <b id="uploaderFallback">für Sandritter</b></div>
+      <button class="btn secondary" id="btnRefresh">↻ Aktualisieren</button>
+    </div>
+
+    <div class="grid">
+
+      <!-- LEFT: List -->
+      <div class="card">
+        <div class="card-h">
+          <h2>🗂️ Skizzen-Notizen</h2>
+          <button class="btn" id="btnNew">+ Neu</button>
+        </div>
+
+        <div class="card-b">
+          <input class="in" id="q" placeholder="Suche: z.B. Küche, Decke, Fenster..." />
+          <div class="hr"></div>
+          <div class="list" id="list"></div>
+          <div class="muted" id="emptyHint">Keine Notizen gefunden.</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Editor -->
+      <div class="card">
+        <div class="card-h">
+          <h2>📝 Notiz</h2>
+          <span class="tag" id="noteIdTag">kein Datensatz</span>
+        </div>
+
+        <div class="card-b">
+          <div class="row">
+            <div style="flex:1">
+              <div class="muted" style="margin-bottom:6px">Uploader-Name (bis Login aktiv ist)</div>
+              <input class="in" id="uploaderName" />
+              <div class="muted" style="margin-top:8px">
+                Später mit Login wird automatisch <span class="mono">uploadedBy.uid/name/email</span> gesetzt.
+              </div>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="muted" style="margin-bottom:6px">Titel</div>
+          <input class="in" id="title" placeholder="z.B. Küche – Wasserleitung links" />
+
+          <div class="muted" style="margin:12px 0 6px">Notiz / Beschreibung</div>
+          <textarea class="in" id="note" placeholder="Was ist zu sehen? Was muss geändert werden?"></textarea>
+
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="btnSave">💾 Notiz speichern</button>
+            <button class="btn danger" id="btnDelete">🗑️ Löschen</button>
+          </div>
+
+          <div class="muted" id="timeInfo" style="margin-top:10px"></div>
+
+          <div class="hr"></div>
+
+          <!-- Upload -->
+          <div class="row" style="align-items:flex-end">
+            <div style="flex:1;min-width:220px">
+              <div class="row" style="justify-content:space-between">
+                <div class="muted" style="font-weight:800">📎 Version hochladen</div>
+                <button class="btn secondary" id="btnMeasure" disabled>📐 Maß-Overlay</button>
+              </div>
+              <div class="muted" style="margin-top:6px">
+                Speicherpfad: <span class="mono" id="storePathHint">sketches/sandritter/{noteId}/vX-…</span>
+              </div>
+              <div style="margin-top:10px">
+                <input class="in" type="file" id="file" accept="image/*" />
+              </div>
+
+              <div class="row" style="margin-top:10px">
+                <button class="btn" id="btnUpload" disabled>⬆️ Als neue Version hochladen</button>
+                <button class="btn secondary" id="btnFreeSketch" disabled>✏️ Skizze anfertigen</button>
+              </div>
+
+              <div class="muted" style="margin-top:10px">
+                Status: <b id="uploadStatus">—</b>
+              </div>
+            </div>
+
+            <div style="width:260px;max-width:100%">
+              <div class="preview" id="preview"><span class="muted">Keine Vorschau</span></div>
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="muted" style="font-weight:900;margin-bottom:10px">🧾 Versionen</div>
+          <div class="versions" id="versions"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Free Sketch Modal -->
+  <div class="modal" id="freeModal">
+    <div class="modal-card">
+      <div class="modal-h">
+        <div class="ttl">✏️ Freie Skizze <span class="muted" style="font-weight:700">Tip: Finger/Stift – Undo/Redo nutzen</span></div>
+        <div class="row">
+          <button class="btn secondary" id="freeClose">✖</button>
+        </div>
+      </div>
+      <div class="modal-b">
+        <div class="tools" style="margin-bottom:10px">
+          <button class="tool active" id="freePen">Stift</button>
+          <button class="tool" id="freeEraser">Radierer</button>
+          <input type="color" id="freeColor" value="#ffffff" style="width:48px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:transparent" />
+          <input type="range" id="freeSize" min="1" max="18" value="3" />
+          <button class="tool" id="freeUndo">↩ Undo</button>
+          <button class="tool" id="freeRedo">↪ Redo</button>
+          <button class="tool" id="freeClear" style="background:rgba(231,74,74,.15);border-color:rgba(231,74,74,.4)">🧼 Clear</button>
+          <button class="btn" id="freeSave">💾 Als Version speichern</button>
+        </div>
+
+        <div class="canvasWrap">
+          <canvas id="freeCanvas" width="900" height="900"></canvas>
+        </div>
+
+        <div class="muted" style="margin-top:10px">
+          Speichern erzeugt ein PNG und lädt es als <b>neue Version</b> hoch.
+        </div>
+        <div class="muted" id="freeHint" style="margin-top:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Measure Overlay Modal -->
+  <div class="modal" id="measureModal">
+    <div class="modal-card">
+      <div class="modal-h">
+        <div class="ttl">📐 Maß-Overlay <span class="muted" style="font-weight:700">Tipp: Maßlinie ziehen (🏹), Text setzen (abc), Auswahl: bewegen</span></div>
+        <div class="row">
+          <button class="btn secondary" id="measureClose">✖</button>
+        </div>
+      </div>
+
+      <div class="modal-b">
+        <div class="tools" style="margin-bottom:10px">
+          <button class="tool active" id="mSelect">🔎 Auswahl</button>
+          <button class="tool" id="mDim">📏 Maßlinie</button>
+          <button class="tool" id="mText">abc Text</button>
+
+          <button class="tool" id="mUndo">↩ Undo</button>
+          <button class="tool" id="mRedo">↪ Redo</button>
+          <button class="tool" id="mClear" style="background:rgba(231,74,74,.15);border-color:rgba(231,74,74,.4)">🧼 Clear</button>
+
+          <input class="in" id="mTextInput" style="max-width:240px" placeholder="z.B. 5,80 m / 5800 mm" />
+          <input type="range" id="mWidth" min="1" max="12" value="4" />
+          <input type="color" id="mColor" value="#ffffff" style="width:48px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:transparent" />
+
+          <button class="btn" id="mExport">🖼️ Export & als Version speichern</button>
+        </div>
+
+        <div class="canvasWrap">
+          <canvas id="measureCanvas" width="900" height="900"></canvas>
+        </div>
+
+        <div class="muted" id="mHint" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ============================
+  // Firebase init (foodtec26)
+  // ============================
+  const firebaseConfig = {
+    apiKey: "AIzaSyBpEwbSZgs3agOf48j5FU91Yx-r1__HF6A",
+    authDomain: "foodtec26.firebaseapp.com",
+    projectId: "foodtec26",
+    storageBucket: "foodtec26.firebasestorage.app",
+    messagingSenderId: "227220894528",
+    appId: "1:227220894528:web:2588691a45dee930ee00a5"
+  };
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
+  // ============================
+  // Helpers
+  // ============================
+  const $ = (id) => document.getElementById(id);
+  const fmtDT = (d) => {
+    if (!d) return "—";
+    const dd = (d.toDate ? d.toDate() : (d instanceof Date ? d : new Date(d)));
+    return dd.toLocaleString("de-DE");
+  };
+  const slug = (s) => (s || "").toString().trim().toLowerCase()
+    .replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+    .replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"") || "bv";
+
+  const nowISO = () => new Date().toISOString().replace(/[:.]/g,"-");
+
+  // Build download URL from storage object path + token (token is optional; we can still fetch via getDownloadURL if uploaded by SDK)
+  const storageDownloadUrlFromToken = (bucket, objectPath, token) => {
+    const enc = encodeURIComponent(objectPath);
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${enc}?alt=media${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+  };
+
+  // ============================
+  // BV / Fallback (v1)
+  // ============================
+  const BV = { id: "sandritter", name: "Sandritter" };
+  $("bvName").textContent = BV.name;
+  $("uploaderFallback").textContent = "für " + BV.name;
+  $("uploaderName").value = "für " + BV.name;
+
+  // ============================
+  // Connection indicator
+  // ============================
+  const dot = $("dot");
+  const connTxt = $("connTxt");
+  (async () => {
+    try{
+      await db.collection("_ping").doc("x").get();
+      dot.classList.add("ok");
+      connTxt.textContent = "Verbunden ✅";
+    }catch(e){
+      dot.classList.remove("ok");
+      connTxt.textContent = "Fehler ❌";
+      console.error(e);
+    }
+  })();
+
+  // ============================
+  // State
+  // ============================
+  const COL = "sketch_notes";      // main notes
+  const SUB = "versions";          // subcollection under note
+  let notesUnsub = null;
+  let versionsUnsub = null;
+
+  let notes = [];
+  let activeNoteId = null;
+  let activeNote = null;
+  let activeVersions = [];
+  let creating = false;
+
+  // ============================
+  // UI refs
+  // ============================
+  const listEl = $("list");
+  const emptyHint = $("emptyHint");
+  const qEl = $("q");
+
+  const noteIdTag = $("noteIdTag");
+  const uploaderEl = $("uploaderName");
+  const titleEl = $("title");
+  const noteEl = $("note");
+  const btnSave = $("btnSave");
+  const btnDelete = $("btnDelete");
+
+  const timeInfo = $("timeInfo");
+
+  const fileEl = $("file");
+  const btnUpload = $("btnUpload");
+  const btnFreeSketch = $("btnFreeSketch");
+  const btnMeasure = $("btnMeasure");
+  const uploadStatus = $("uploadStatus");
+  const preview = $("preview");
+  const storePathHint = $("storePathHint");
+
+  const versionsEl = $("versions");
+
+  // ============================
+  // Query helpers
+  // ============================
+  const notesQuery = () => db.collection(COL)
+    .where("bvId","==",BV.id)
+    .orderBy("updatedAt","desc");
+
+  // ============================
+  // Render list
+  // ============================
+  const renderList = () => {
+    const q = (qEl.value || "").trim().toLowerCase();
+    const filtered = !q ? notes : notes.filter(n => {
+      const t = (n.title||"").toLowerCase();
+      const b = (n.note||"").toLowerCase();
+      return t.includes(q) || b.includes(q);
+    });
+
+    listEl.innerHTML = "";
+    emptyHint.style.display = filtered.length ? "none" : "block";
+
+    filtered.forEach(n => {
+      const div = document.createElement("div");
+      div.className = "item" + (n.id === activeNoteId ? " active" : "");
+      div.innerHTML = `
+        <div class="t">${escapeHtml(n.title || "Neue Skizze – " + BV.name)}</div>
+        <div class="s">
+          <span>🧱 ${escapeHtml(n.bvName || BV.name)}</span>
+          <span>🕒 ${escapeHtml(fmtDT(n.createdAt))}</span>
+        </div>
+        ${(n.note||"").trim() ? `<div class="muted" style="margin-top:8px">${escapeHtml(shorten(n.note, 72))}</div>` : ""}
+      `;
+      div.onclick = () => selectNote(n.id);
+      listEl.appendChild(div);
+    });
+  };
+
+  function shorten(s, n){
+    s = (s||"").toString();
+    return s.length > n ? s.slice(0, n-1) + "…" : s;
+  }
+  function escapeHtml(s){
+    return (s ?? "").toString()
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
+  // ============================
+  // Load notes live
+  // ============================
+  const subscribeNotes = () => {
+    if (notesUnsub) notesUnsub();
+    notesUnsub = notesQuery().onSnapshot((snap) => {
+      notes = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      renderList();
+
+      // keep active note data in sync
+      if (activeNoteId){
+        const found = notes.find(n => n.id === activeNoteId);
+        if (found) setActive(found, { keepFields:true });
+      }
+    }, (err) => console.error(err));
+  };
+
+  // ============================
+  // Select note
+  // ============================
+  const selectNote = (id) => {
+    const n = notes.find(x => x.id === id);
+    if (!n) return;
+    setActive(n);
+  };
+
+  const setActive = (n, opts={}) => {
+    activeNoteId = n.id;
+    activeNote = n;
+
+    noteIdTag.textContent = n.id || "—";
+    uploaderEl.value = (opts.keepFields ? uploaderEl.value : (n.uploaderName || ("für " + BV.name)));
+    titleEl.value = (opts.keepFields ? titleEl.value : (n.title || ("Neue Skizze – " + BV.name)));
+    noteEl.value = (opts.keepFields ? noteEl.value : (n.note || ""));
+
+    const c = n.createdAt ? fmtDT(n.createdAt) : "—";
+    const u = n.updatedAt ? fmtDT(n.updatedAt) : "—";
+    timeInfo.textContent = `Erstellt: ${c} • Update: ${u}`;
+
+    // enable actions
+    btnDelete.disabled = false;
+    btnSave.disabled = false;
+    fileEl.disabled = false;
+    btnUpload.disabled = !fileEl.files?.length;
+    btnFreeSketch.disabled = false;
+    btnMeasure.disabled = activeVersions.length === 0; // needs an image base ideally
+
+    // path hint
+    storePathHint.textContent = `sketches/${BV.id}/${n.id}/vX-…`;
+
+    // subscribe versions
+    subscribeVersions(n.id);
+
+    renderList();
+  };
+
+  // ============================
+  // Versions subscribe
+  // ============================
+  const subscribeVersions = (noteId) => {
+    if (versionsUnsub) versionsUnsub();
+    versionsEl.innerHTML = "";
+    preview.innerHTML = `<span class="muted">Keine Vorschau</span>`;
+    activeVersions = [];
+
+    versionsUnsub = db.collection(COL).doc(noteId).collection(SUB)
+      .orderBy("createdAt","desc")
+      .onSnapshot((snap) => {
+        activeVersions = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        renderVersions();
+        // enable measure overlay if we have at least one image
+        btnMeasure.disabled = activeVersions.length === 0;
+      }, (err) => console.error(err));
+  };
+
+  const renderVersions = () => {
+    versionsEl.innerHTML = "";
+    if (!activeVersions.length){
+      versionsEl.innerHTML = `<div class="muted">Noch keine Versionen.</div>`;
+      return;
+    }
+
+    // preview = latest version
+    const latest = activeVersions[0];
+    if (latest?.downloadURL){
+      preview.innerHTML = `<img alt="Vorschau" src="${latest.downloadURL}" />`;
+    }
+
+    activeVersions.forEach((v, idx) => {
+      const div = document.createElement("div");
+      div.className = "ver";
+      const label = v.label || `v${activeVersions.length - idx}`;
+      const created = fmtDT(v.createdAt);
+      const type = v.source || "file";
+      div.innerHTML = `
+        <div class="top">
+          <b>${escapeHtml(label)} • ${escapeHtml(created)}</b>
+          <span class="meta">
+            <span class="tag">👤 ${escapeHtml(v.uploadedByName || "—")}</span>
+            <span class="tag">🔎 ${escapeHtml(v.method || "manual")}</span>
+            <span class="tag">🧩 ${escapeHtml(type)}</span>
+          </span>
+        </div>
+        <div style="margin-top:10px" class="row">
+          ${v.downloadURL ? `<a class="link" target="_blank" rel="noopener" href="${v.downloadURL}">🔗 Öffnen</a>` : ""}
+        </div>
+        <div class="mono" style="margin-top:10px;word-break:break-all">${escapeHtml(v.storagePath || "")}</div>
+      `;
+      versionsEl.appendChild(div);
+    });
+  };
+
+  // ============================
+  // Create new note (fix: no multi spam)
+  // ============================
+  $("btnNew").onclick = async () => {
+    if (creating) return;
+    creating = true;
+    $("btnNew").disabled = true;
+
+    try{
+      const doc = await db.collection(COL).add({
+        bvId: BV.id,
+        bvName: BV.name,
+        uploaderName: "für " + BV.name,
+        title: "Neue Skizze – " + BV.name,
+        note: "",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // select after small delay (timestamp fill)
+      activeNoteId = doc.id;
+      await doc.get();
+      // we rely on notes snapshot to populate; fallback: load once
+      const snap = await db.collection(COL).doc(doc.id).get();
+      if (snap.exists) setActive({id:snap.id, ...snap.data()});
+    }catch(e){
+      console.error(e);
+      alert("Fehler beim Anlegen der Notiz: " + (e.message || e));
+    }finally{
+      creating = false;
+      $("btnNew").disabled = false;
+    }
+  };
+
+  // ============================
+  // Save note
+  // ============================
+  btnSave.onclick = async () => {
+    if (!activeNoteId) return alert("Bitte zuerst eine Notiz auswählen.");
+    btnSave.disabled = true;
+    try{
+      await db.collection(COL).doc(activeNoteId).set({
+        uploaderName: uploaderEl.value.trim() || ("für " + BV.name),
+        title: titleEl.value.trim() || ("Neue Skizze – " + BV.name),
+        note: noteEl.value || "",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+
+      uploadStatus.textContent = "Notiz gespeichert ✅";
+    }catch(e){
+      console.error(e);
+      alert("Speichern fehlgeschlagen: " + (e.message || e));
+    }finally{
+      btnSave.disabled = false;
+    }
+  };
+
+  // ============================
+  // Delete note + versions (Firestore only) – Storage bleibt (v1 pragmatisch)
+  // ============================
+  btnDelete.onclick = async () => {
+    if (!activeNoteId) return;
+    const ok = confirm("Notiz wirklich löschen?\n(Versionen-Einträge werden mit gelöscht, Storage-Dateien bleiben vorerst.)");
+    if (!ok) return;
+
+    btnDelete.disabled = true;
+    try{
+      // delete subcollection docs
+      const subSnap = await db.collection(COL).doc(activeNoteId).collection(SUB).get();
+      const batch = db.batch();
+      subSnap.forEach(d => batch.delete(d.ref));
+      batch.delete(db.collection(COL).doc(activeNoteId));
+      await batch.commit();
+
+      activeNoteId = null;
+      activeNote = null;
+      noteIdTag.textContent = "kein Datensatz";
+      titleEl.value = "";
+      noteEl.value = "";
+      btnUpload.disabled = true;
+      btnFreeSketch.disabled = true;
+      btnMeasure.disabled = true;
+      uploadStatus.textContent = "—";
+      preview.innerHTML = `<span class="muted">Keine Vorschau</span>`;
+      versionsEl.innerHTML = "";
+
+    }catch(e){
+      console.error(e);
+      alert("Löschen fehlgeschlagen: " + (e.message || e));
+    }finally{
+      btnDelete.disabled = false;
+    }
+  };
+
+  // ============================
+  // Upload file as new version
+  // ============================
+  fileEl.addEventListener("change", () => {
+    btnUpload.disabled = !activeNoteId || !fileEl.files?.length;
+  });
+
+  btnUpload.onclick = async () => {
+    if (!activeNoteId) return alert("Bitte zuerst eine Notiz auswählen.");
+    const f = fileEl.files?.[0];
+    if (!f) return;
+
+    btnUpload.disabled = true;
+    uploadStatus.textContent = "Upload läuft…";
+
+    try{
+      const verNo = (activeVersions.length ? (parseInt((activeVersions[0].label||"v1").replace("v",""),10) + 1) : 1) || 1;
+      const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+      const name = `v${verNo}-${nowISO()}-${(f.name || "upload").replace(/\s+/g,"_")}`;
+      const storagePath = `sketches/${BV.id}/${activeNoteId}/${name}.${ext}`;
+
+      const ref = storage.ref().child(storagePath);
+      const meta = { contentType: f.type || "image/jpeg" };
+      const up = await ref.put(f, meta);
+      const downloadURL = await up.ref.getDownloadURL();
+
+      await db.collection(COL).doc(activeNoteId).collection(SUB).add({
+        label: `v${verNo}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        storagePath,
+        downloadURL,
+        uploadedByName: uploaderEl.value.trim() || ("für " + BV.name),
+        method: "manual",
+        source: "file"
+      });
+
+      uploadStatus.textContent = "Upload fertig ✅";
+      fileEl.value = "";
+      btnUpload.disabled = true;
+
+    }catch(e){
+      console.error(e);
+      uploadStatus.textContent = "Upload fehlgeschlagen ❌";
+      alert("Upload fehlgeschlagen: " + (e.message || e));
+    }finally{
+      btnUpload.disabled = !activeNoteId || !fileEl.files?.length;
+    }
+  };
+
+  // ============================
+  // Free sketch modal logic
+  // ============================
+  const freeModal = $("freeModal");
+  const freeCanvas = $("freeCanvas");
+  const fctx = freeCanvas.getContext("2d");
+  let freeTool = "pen";
+  let freeColor = $("freeColor").value;
+  let freeSize = parseInt($("freeSize").value,10);
+  let freeDown = false;
+  let freeLast = null;
+
+  const freeUndoStack = [];
+  const freeRedoStack = [];
+
+  const freeSnapshot = () => {
+    freeUndoStack.push(fctx.getImageData(0,0,freeCanvas.width,freeCanvas.height));
+    if (freeUndoStack.length > 30) freeUndoStack.shift();
+    freeRedoStack.length = 0;
+    $("freeHint").textContent = "Stroke gespeichert (Undo möglich)";
+  };
+
+  const freeClear = () => {
+    fctx.clearRect(0,0,freeCanvas.width,freeCanvas.height);
+    fctx.fillStyle = "rgba(0,0,0,0)";
+    $("freeHint").textContent = "Canvas geleert.";
+  };
+
+  const freeSetTool = (t) => {
+    freeTool = t;
+    $("freePen").classList.toggle("active", t==="pen");
+    $("freeEraser").classList.toggle("active", t==="eraser");
+  };
+
+  const freeOpen = () => {
+    if (!activeNoteId) return alert("Bitte zuerst eine Notiz auswählen.");
+    freeModal.classList.add("open");
+    // reset to transparent
+    fctx.clearRect(0,0,freeCanvas.width,freeCanvas.height);
+    freeUndoStack.length = 0;
+    freeRedoStack.length = 0;
+    $("freeHint").textContent = "";
+    freeSetTool("pen");
+  };
+
+  $("btnFreeSketch").onclick = freeOpen;
+  $("freeClose").onclick = () => freeModal.classList.remove("open");
+  $("freePen").onclick = () => freeSetTool("pen");
+  $("freeEraser").onclick = () => freeSetTool("eraser");
+  $("freeColor").oninput = (e) => freeColor = e.target.value;
+  $("freeSize").oninput = (e) => freeSize = parseInt(e.target.value,10);
+  $("freeUndo").onclick = () => {
+    if (!freeUndoStack.length) return;
+    const cur = fctx.getImageData(0,0,freeCanvas.width,freeCanvas.height);
+    freeRedoStack.push(cur);
+    const prev = freeUndoStack.pop();
+    fctx.putImageData(prev,0,0);
+  };
+  $("freeRedo").onclick = () => {
+    if (!freeRedoStack.length) return;
+    const cur = fctx.getImageData(0,0,freeCanvas.width,freeCanvas.height);
+    freeUndoStack.push(cur);
+    const next = freeRedoStack.pop();
+    fctx.putImageData(next,0,0);
+  };
+  $("freeClear").onclick = () => {
+    freeSnapshot();
+    freeClear();
+  };
+
+  const freePos = (ev) => {
+    const r = freeCanvas.getBoundingClientRect();
+    const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const y = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
+    // scale to canvas
+    const sx = freeCanvas.width / r.width;
+    const sy = freeCanvas.height / r.height;
+    return { x: x*sx, y: y*sy };
+  };
+
+  const freeDraw = (a,b) => {
+    fctx.lineCap = "round";
+    fctx.lineJoin = "round";
+    fctx.lineWidth = freeSize;
+    if (freeTool === "eraser"){
+      fctx.globalCompositeOperation = "destination-out";
+      fctx.strokeStyle = "rgba(0,0,0,1)";
+    } else {
+      fctx.globalCompositeOperation = "source-over";
+      fctx.strokeStyle = freeColor;
+    }
+    fctx.beginPath();
+    fctx.moveTo(a.x,a.y);
+    fctx.lineTo(b.x,b.y);
+    fctx.stroke();
+  };
+
+  const freeDownFn = (ev) => {
+    ev.preventDefault();
+    freeSnapshot();
+    freeDown = true;
+    freeLast = freePos(ev);
+  };
+  const freeMoveFn = (ev) => {
+    if (!freeDown) return;
+    ev.preventDefault();
+    const p = freePos(ev);
+    freeDraw(freeLast, p);
+    freeLast = p;
+  };
+  const freeUpFn = () => {
+    freeDown = false;
+    freeLast = null;
+  };
+
+  freeCanvas.addEventListener("mousedown", freeDownFn);
+  freeCanvas.addEventListener("mousemove", freeMoveFn);
+  window.addEventListener("mouseup", freeUpFn);
+  freeCanvas.addEventListener("touchstart", freeDownFn, {passive:false});
+  freeCanvas.addEventListener("touchmove", freeMoveFn, {passive:false});
+  window.addEventListener("touchend", freeUpFn);
+
+  $("freeSave").onclick = async () => {
+    if (!activeNoteId) return;
+    $("freeSave").disabled = true;
+    $("freeHint").textContent = "Speichere PNG & lade hoch…";
+
+    try{
+      const blob = await new Promise(res => freeCanvas.toBlob(res, "image/png", 0.92));
+      if (!blob) throw new Error("PNG konnte nicht erzeugt werden.");
+
+      const verNo = (activeVersions.length ? (parseInt((activeVersions[0].label||"v1").replace("v",""),10) + 1) : 1) || 1;
+      const storagePath = `sketches/${BV.id}/${activeNoteId}/v${verNo}-${nowISO()}-skizze-${BV.id}.png`;
+
+      const ref = storage.ref().child(storagePath);
+      const up = await ref.put(blob, { contentType:"image/png" });
+      const downloadURL = await up.ref.getDownloadURL();
+
+      await db.collection(COL).doc(activeNoteId).collection(SUB).add({
+        label: `v${verNo}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        storagePath,
+        downloadURL,
+        uploadedByName: uploaderEl.value.trim() || ("für " + BV.name),
+        method: "manual",
+        source: "canvas"
+      });
+
+      $("freeHint").textContent = "Gespeichert ✅ (neue Version erstellt)";
+      freeModal.classList.remove("open");
+    }catch(e){
+      console.error(e);
+      alert("Speichern fehlgeschlagen: " + (e.message || e));
+    }finally{
+      $("freeSave").disabled = false;
+    }
+  };
+
+  // ============================
+  // Measure overlay v3.1 (Pfeil-Maßlinie)
+  // ============================
+  const measureModal = $("measureModal");
+  const mCanvas = $("measureCanvas");
+  const mctx = mCanvas.getContext("2d");
+
+  let mTool = "select"; // select | dim | text
+  let mColor = $("mColor").value;
+  let mWidth = parseInt($("mWidth").value,10);
+  let mTextVal = $("mTextInput").value;
+
+  // objects: {type:'dim', x1,y1,x2,y2, text, color, w} or {type:'text', x,y, text, color, size}
+  let mObjects = [];
+  let mUndo = [];
+  let mRedo = [];
+  let mBaseImg = new Image();
+  let mBaseLoaded = false;
+
+  let mDown = false;
+  let mStart = null;
+  let mTemp = null; // for dim preview
+  let mSel = null;  // selected object index
+  let mDragMode = null; // 'move' | 'p1' | 'p2'
+  let mLastPos = null;
+
+  const mSnap = () => {
+    mUndo.push(JSON.stringify(mObjects));
+    if (mUndo.length > 40) mUndo.shift();
+    mRedo.length = 0;
+  };
+
+  const mSetTool = (t) => {
+    mTool = t;
+    $("mSelect").classList.toggle("active", t==="select");
+    $("mDim").classList.toggle("active", t==="dim");
+    $("mText").classList.toggle("active", t==="text");
+    $("mHint").textContent =
+      t==="dim" ? "Ziehe eine Maßlinie. Danach wird der Text aus dem Eingabefeld übernommen." :
+      t==="text" ? "Tippe ins Bild, um Text zu setzen." :
+      "Auswahl: Objekt antippen und ziehen. Bei Maßlinie: Endpunkt ziehen.";
+  };
+
+  $("mSelect").onclick = () => mSetTool("select");
+  $("mDim").onclick = () => mSetTool("dim");
+  $("mText").onclick = () => mSetTool("text");
+  $("mColor").oninput = (e) => { mColor = e.target.value; renderMeasure(); };
+  $("mWidth").oninput = (e) => { mWidth = parseInt(e.target.value,10); renderMeasure(); };
+  $("mTextInput").oninput = (e) => mTextVal = e.target.value;
+
+  $("mUndo").onclick = () => {
+    if (!mUndo.length) return;
+    mRedo.push(JSON.stringify(mObjects));
+    mObjects = JSON.parse(mUndo.pop());
+    mSel = null;
+    renderMeasure();
+  };
+  $("mRedo").onclick = () => {
+    if (!mRedo.length) return;
+    mUndo.push(JSON.stringify(mObjects));
+    mObjects = JSON.parse(mRedo.pop());
+    mSel = null;
+    renderMeasure();
+  };
+  $("mClear").onclick = () => {
+    mSnap();
+    mObjects = [];
+    mSel = null;
+    renderMeasure();
+  };
+
+  const mOpen = async () => {
+    if (!activeNoteId) return alert("Bitte zuerst eine Notiz auswählen.");
+    if (!activeVersions.length) return alert("Bitte erst eine Version (Foto) hochladen – dann Maß-Overlay.");
+
+    // base = latest image
+    const baseUrl = activeVersions[0].downloadURL;
+    mBaseLoaded = false;
+    mObjects = [];
+    mUndo = [];
+    mRedo = [];
+    mSel = null;
+
+    mSetTool("select");
+
+    measureModal.classList.add("open");
+    $("mHint").textContent = "Lade Bild…";
+
+    await new Promise((resolve, reject) => {
+      mBaseImg = new Image();
+      mBaseImg.crossOrigin = "anonymous";
+      mBaseImg.onload = () => { mBaseLoaded = true; resolve(); };
+      mBaseImg.onerror = reject;
+      mBaseImg.src = baseUrl;
+    });
+
+    // fit canvas: keep square canvas but draw image contained
+    renderMeasure();
+    $("mHint").textContent = "Bereit ✅ Zieh eine Maßlinie (📏 Maßlinie) und setze Maße.";
+  };
+
+  $("btnMeasure").onclick = mOpen;
+  $("measureClose").onclick = () => measureModal.classList.remove("open");
+
+  const mPos = (ev) => {
+    const r = mCanvas.getBoundingClientRect();
+    const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const y = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
+    const sx = mCanvas.width / r.width;
+    const sy = mCanvas.height / r.height;
+    return { x: x*sx, y: y*sy };
+  };
+
+  // hit testing
+  const dist2 = (a,b) => {
+    const dx=a.x-b.x, dy=a.y-b.y;
+    return Math.sqrt(dx*dx+dy*dy);
+  };
+
+  const hitDim = (obj, p) => {
+    // near endpoints?
+    const p1 = {x:obj.x1,y:obj.y1}, p2={x:obj.x2,y:obj.y2};
+    if (dist2(p,p1) < 16) return { hit:true, mode:"p1" };
+    if (dist2(p,p2) < 16) return { hit:true, mode:"p2" };
+
+    // near line segment
+    const A = p1, B = p2;
+    const ABx = B.x-A.x, ABy=B.y-A.y;
+    const APx = p.x-A.x, APy=p.y-A.y;
+    const ab2 = ABx*ABx + ABy*ABy;
+    const t = ab2 ? Math.max(0, Math.min(1, (APx*ABx + APy*ABy)/ab2)) : 0;
+    const proj = { x: A.x + t*ABx, y: A.y + t*ABy };
+    const d = dist2(p, proj);
+    return d < 14 ? { hit:true, mode:"move" } : { hit:false };
+  };
+
+  const hitText = (obj, p) => {
+    // approximate bbox around text
+    const size = obj.size || 32;
+    const w = Math.max(60, (obj.text||"").length * (size*0.55));
+    const h = size*1.2;
+    return (p.x >= obj.x - w/2 && p.x <= obj.x + w/2 && p.y >= obj.y - h/2 && p.y <= obj.y + h/2);
+  };
+
+  const pickObject = (p) => {
+    // reverse iterate (topmost last)
+    for (let i=mObjects.length-1; i>=0; i--){
+      const o = mObjects[i];
+      if (o.type === "dim"){
+        const h = hitDim(o,p);
+        if (h.hit) return { index:i, mode:h.mode };
+      } else if (o.type === "text"){
+        if (hitText(o,p)) return { index:i, mode:"move" };
+      }
+    }
+    return null;
+  };
+
+  // drawing helpers
+  const drawArrow = (ctx, x, y, angle, size, color) => {
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(-size, size*0.55);
+    ctx.lineTo(-size, -size*0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const drawDim = (ctx, o) => {
+    const color = o.color || "#fff";
+    const w = o.w || 4;
+    const size = Math.max(10, (o.arrowSize || 14) + (w*0.3));
+
+    const x1=o.x1, y1=o.y1, x2=o.x2, y2=o.y2;
+    const ang = Math.atan2(y2-y1, x2-x1);
+
+    // line
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+
+    // arrows: inward facing
+    drawArrow(ctx, x1, y1, ang, size, color);
+    drawArrow(ctx, x2, y2, ang + Math.PI, size, color);
+
+    // text
+    const txt = (o.text || "").trim();
+    if (txt){
+      const mx = (x1+x2)/2;
+      const my = (y1+y2)/2;
+
+      ctx.save();
+      ctx.translate(mx,my);
+
+      // keep text readable: rotate with line but clamp upside-down
+      let rot = ang;
+      if (rot > Math.PI/2 || rot < -Math.PI/2) rot += Math.PI;
+      ctx.rotate(rot);
+
+      ctx.font = `800 ${Math.max(22, 18 + w*2)}px ${getComputedStyle(document.body).fontFamily}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+
+      // small shadow box
+      const padX = 10, padY = 6;
+      const metrics = ctx.measureText(txt);
+      const bw = metrics.width + padX*2;
+      const bh = (Math.max(22, 18 + w*2)) + padY*2;
+
+      ctx.fillStyle = "rgba(0,0,0,.45)";
+      roundRect(ctx, -bw/2, -bh, bw, bh, 10);
+      ctx.fill();
+
+      ctx.fillStyle = color;
+      ctx.fillText(txt, 0, -padY);
+      ctx.restore();
+    }
+  };
+
+  const roundRect = (ctx, x, y, w, h, r) => {
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  };
+
+  const drawText = (ctx, o) => {
+    const color = o.color || "#fff";
+    const size = o.size || 36;
+    const txt = (o.text||"").trim();
+    if (!txt) return;
+    ctx.save();
+    ctx.font = `900 ${size}px ${getComputedStyle(document.body).fontFamily}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // background pill
+    const m = ctx.measureText(txt);
+    const w = m.width + 28;
+    const h = size*1.15;
+    ctx.fillStyle = "rgba(0,0,0,.45)";
+    roundRect(ctx, o.x - w/2, o.y - h/2, w, h, 14);
+    ctx.fill();
+
+    ctx.fillStyle = color;
+    ctx.fillText(txt, o.x, o.y+1);
+    ctx.restore();
+  };
+
+  const drawSelection = (ctx, o) => {
+    ctx.save();
+    ctx.strokeStyle = "rgba(69,200,106,.8)";
+    ctx.lineWidth = 3;
+    if (o.type==="dim"){
+      ctx.beginPath();
+      ctx.arc(o.x1,o.y1,10,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(o.x2,o.y2,10,0,Math.PI*2); ctx.stroke();
+    } else if (o.type==="text"){
+      ctx.beginPath();
+      ctx.arc(o.x,o.y,10,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  const drawBaseImageContained = (ctx, img) => {
+    // draw image contained inside canvas
+    const cw = ctx.canvas.width, ch = ctx.canvas.height;
+    ctx.clearRect(0,0,cw,ch);
+
+    // dark bg
+    ctx.fillStyle = "rgba(0,0,0,.18)";
+    ctx.fillRect(0,0,cw,ch);
+
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.min(cw/iw, ch/ih);
+    const w = iw*scale, h = ih*scale;
+    const x = (cw - w)/2;
+    const y = (ch - h)/2;
+    ctx.drawImage(img, x, y, w, h);
+
+    // store transform to map points if needed later (currently we draw in canvas space)
+    return { x, y, w, h, scale };
+  };
+
+  let baseBox = null;
+
+  const renderMeasure = () => {
+    if (!mBaseLoaded) return;
+    baseBox = drawBaseImageContained(mctx, mBaseImg);
+
+    // objects
+    mObjects.forEach((o, idx) => {
+      if (o.type==="dim") drawDim(mctx, o);
+      if (o.type==="text") drawText(mctx, o);
+      if (idx === mSel) drawSelection(mctx, o);
+    });
+
+    // temp
+    if (mTemp && mTemp.type==="dim"){
+      drawDim(mctx, mTemp);
+    }
+  };
+
+  const mDownFn = (ev) => {
+    if (!mBaseLoaded) return;
+    ev.preventDefault();
+    const p = mPos(ev);
+    mDown = true;
+    mStart = p;
+    mLastPos = p;
+
+    if (mTool==="dim"){
+      mTemp = {
+        type:"dim",
+        x1:p.x, y1:p.y, x2:p.x, y2:p.y,
+        text:(mTextVal||"").trim(),
+        color:mColor, w:mWidth, arrowSize:14
+      };
+    } else if (mTool==="text"){
+      const txt = (mTextVal||"").trim();
+      if (!txt){ mDown=false; return; }
+      mSnap();
+      mObjects.push({ type:"text", x:p.x, y:p.y, text:txt, color:mColor, size:36 });
+      mSel = mObjects.length-1;
+      mDown = false;
+      renderMeasure();
+    } else if (mTool==="select"){
+      const hit = pickObject(p);
+      if (hit){
+        mSel = hit.index;
+        mDragMode = hit.mode;
+      } else {
+        mSel = null;
+        mDragMode = null;
+      }
+      renderMeasure();
+    }
+  };
+
+  const mMoveFn = (ev) => {
+    if (!mDown || !mBaseLoaded) return;
+    ev.preventDefault();
+    const p = mPos(ev);
+
+    if (mTool==="dim" && mTemp){
+      mTemp.x2 = p.x; mTemp.y2 = p.y;
+      renderMeasure();
+      return;
+    }
+
+    if (mTool==="select" && mSel != null){
+      const o = mObjects[mSel];
+      const dx = p.x - mLastPos.x;
+      const dy = p.y - mLastPos.y;
+
+      if (!dx && !dy) return;
+
+      // snapshot on first move
+      if (mLastPos === mStart) mSnap();
+
+      if (o.type==="dim"){
+        if (mDragMode==="move"){
+          o.x1 += dx; o.y1 += dy;
+          o.x2 += dx; o.y2 += dy;
+        } else if (mDragMode==="p1"){
+          o.x1 = p.x; o.y1 = p.y;
+        } else if (mDragMode==="p2"){
+          o.x2 = p.x; o.y2 = p.y;
+        }
+        // update text live from input if user changes (optional)
+        // o.text = (mTextVal||o.text||"").trim();
+      } else if (o.type==="text"){
+        o.x += dx; o.y += dy;
+      }
+
+      mLastPos = p;
+      renderMeasure();
+    }
+  };
+
+  const mUpFn = () => {
+    if (!mDown) return;
+    mDown = false;
+
+    if (mTool==="dim" && mTemp){
+      // finalize
+      const len = Math.hypot(mTemp.x2-mTemp.x1, mTemp.y2-mTemp.y1);
+      if (len > 8){
+        mSnap();
+        // if no text in field, keep empty; user can add by selecting and re-typing later in v3.2
+        mTemp.text = (mTextVal||mTemp.text||"").trim();
+        mObjects.push(mTemp);
+        mSel = mObjects.length-1;
+      }
+      mTemp = null;
+      renderMeasure();
+    }
+
+    mDragMode = null;
+  };
+
+  mCanvas.addEventListener("mousedown", mDownFn);
+  mCanvas.addEventListener("mousemove", mMoveFn);
+  window.addEventListener("mouseup", mUpFn);
+  mCanvas.addEventListener("touchstart", mDownFn, {passive:false});
+  mCanvas.addEventListener("touchmove", mMoveFn, {passive:false});
+  window.addEventListener("touchend", mUpFn);
+
+  $("mExport").onclick = async () => {
+    if (!activeNoteId) return;
+    if (!mBaseLoaded) return;
+    $("mExport").disabled = true;
+    $("mHint").textContent = "Exportiere PNG & lade als neue Version hoch…";
+
+    try{
+      // render already on canvas; export blob
+      const blob = await new Promise(res => mCanvas.toBlob(res, "image/png", 0.92));
+      if (!blob) throw new Error("PNG konnte nicht erzeugt werden.");
+
+      const verNo = (activeVersions.length ? (parseInt((activeVersions[0].label||"v1").replace("v",""),10) + 1) : 1) || 1;
+      const storagePath = `sketches/${BV.id}/${activeNoteId}/v${verNo}-${nowISO()}-mass-${BV.id}.png`;
+
+      const ref = storage.ref().child(storagePath);
+      const up = await ref.put(blob, { contentType:"image/png" });
+      const downloadURL = await up.ref.getDownloadURL();
+
+      await db.collection(COL).doc(activeNoteId).collection(SUB).add({
+        label: `v${verNo}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        storagePath,
+        downloadURL,
+        uploadedByName: uploaderEl.value.trim() || ("für " + BV.name),
+        method: "manual",
+        source: "measure-overlay",
+        objects: mObjects // optional: später für editierbares reopen
+      });
+
+      $("mHint").textContent = "Gespeichert ✅ (Overlay als neue Version)";
+      measureModal.classList.remove("open");
+    }catch(e){
+      console.error(e);
+      alert("Export fehlgeschlagen: " + (e.message || e));
+    }finally{
+      $("mExport").disabled = false;
+    }
+  };
+
+  // ============================
+  // Misc
+  // ============================
+  $("btnRefresh").onclick = () => {
+    // force redraw + re-render
+    renderList();
+    renderVersions();
+    uploadStatus.textContent = "Aktualisiert ✅";
+  };
+
+  // initial
+  subscribeNotes();
+
+  // Default: disable editor until note selected
+  btnSave.disabled = true;
+  btnDelete.disabled = true;
+  fileEl.disabled = true;
+  btnUpload.disabled = true;
+  btnFreeSketch.disabled = true;
+  btnMeasure.disabled = true;
+
+})();
+</script>
+</body>
+</html>
