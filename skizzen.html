@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="./style.css" />
 
   <style>
-    /* Fallback-Styles (falls style.css fehlt) – bewusst schlicht */
     :root{
       --bg:#050b12; --panel:#0f1724; --panel2:#111c2b; --card:#0e1622;
       --border:#1c2a3b; --text:#f5f7fb; --muted:#a2afc5; --accent:#2b78e4;
@@ -293,16 +292,26 @@
     const dd = (d.toDate ? d.toDate() : (d instanceof Date ? d : new Date(d)));
     return dd.toLocaleString("de-DE");
   };
-  const slug = (s) => (s || "").toString().trim().toLowerCase()
-    .replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
-    .replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"") || "bv";
 
   const nowISO = () => new Date().toISOString().replace(/[:.]/g,"-");
 
-  // Build download URL from storage object path + token (token is optional; we can still fetch via getDownloadURL if uploaded by SDK)
-  const storageDownloadUrlFromToken = (bucket, objectPath, token) => {
-    const enc = encodeURIComponent(objectPath);
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${enc}?alt=media${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+  function shorten(s, n){
+    s = (s||"").toString();
+    return s.length > n ? s.slice(0, n-1) + "…" : s;
+  }
+  function escapeHtml(s){
+    return (s ?? "").toString()
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
+  // ✅ Mobile-sicher: URL -> fetch -> blob -> objectURL
+  const fetchAsObjectUrl = async (url) => {
+    const bust = (url.includes("?") ? "&" : "?") + "cb=" + Date.now();
+    const res = await fetch(url + bust, { mode:"cors" });
+    if (!res.ok) throw new Error("Fetch failed: " + res.status);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
   };
 
   // ============================
@@ -333,8 +342,8 @@
   // ============================
   // State
   // ============================
-  const COL = "sketch_notes";      // main notes
-  const SUB = "versions";          // subcollection under note
+  const COL = "sketch_notes";
+  const SUB = "versions";
   let notesUnsub = null;
   let versionsUnsub = null;
 
@@ -343,6 +352,9 @@
   let activeNote = null;
   let activeVersions = [];
   let creating = false;
+
+  // ✅ NEU: aktuell gewähltes Basisbild (für Maß-Overlay & Skizze)
+  let currentBaseUrl = "";
 
   // ============================
   // UI refs
@@ -407,16 +419,6 @@
     });
   };
 
-  function shorten(s, n){
-    s = (s||"").toString();
-    return s.length > n ? s.slice(0, n-1) + "…" : s;
-  }
-  function escapeHtml(s){
-    return (s ?? "").toString()
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-  }
-
   // ============================
   // Load notes live
   // ============================
@@ -426,7 +428,6 @@
       notes = snap.docs.map(d => ({ id:d.id, ...d.data() }));
       renderList();
 
-      // keep active note data in sync
       if (activeNoteId){
         const found = notes.find(n => n.id === activeNoteId);
         if (found) setActive(found, { keepFields:true });
@@ -456,20 +457,19 @@
     const u = n.updatedAt ? fmtDT(n.updatedAt) : "—";
     timeInfo.textContent = `Erstellt: ${c} • Update: ${u}`;
 
-    // enable actions
     btnDelete.disabled = false;
     btnSave.disabled = false;
     fileEl.disabled = false;
     btnUpload.disabled = !fileEl.files?.length;
-    btnFreeSketch.disabled = false;
-    btnMeasure.disabled = activeVersions.length === 0; // needs an image base ideally
+    btnFreeSketch.disabled = true;    // wird aktiv, sobald Basis gesetzt
+    btnMeasure.disabled = true;       // wird aktiv, sobald Basis gesetzt
 
-    // path hint
     storePathHint.textContent = `sketches/${BV.id}/${n.id}/vX-…`;
 
-    // subscribe versions
-    subscribeVersions(n.id);
+    // Reset Basis bei Notizwechsel
+    currentBaseUrl = "";
 
+    subscribeVersions(n.id);
     renderList();
   };
 
@@ -481,14 +481,17 @@
     versionsEl.innerHTML = "";
     preview.innerHTML = `<span class="muted">Keine Vorschau</span>`;
     activeVersions = [];
+    currentBaseUrl = "";
 
     versionsUnsub = db.collection(COL).doc(noteId).collection(SUB)
       .orderBy("createdAt","desc")
       .onSnapshot((snap) => {
         activeVersions = snap.docs.map(d => ({ id:d.id, ...d.data() }));
         renderVersions();
-        // enable measure overlay if we have at least one image
-        btnMeasure.disabled = activeVersions.length === 0;
+
+        // enable overlay/sketch only if we have a base
+        btnMeasure.disabled = !currentBaseUrl;
+        btnFreeSketch.disabled = !currentBaseUrl;
       }, (err) => console.error(err));
   };
 
@@ -496,12 +499,15 @@
     versionsEl.innerHTML = "";
     if (!activeVersions.length){
       versionsEl.innerHTML = `<div class="muted">Noch keine Versionen.</div>`;
+      preview.innerHTML = `<span class="muted">Keine Vorschau</span>`;
+      currentBaseUrl = "";
       return;
     }
 
-    // preview = latest version
+    // Default Basis = latest
     const latest = activeVersions[0];
     if (latest?.downloadURL){
+      currentBaseUrl = latest.downloadURL;
       preview.innerHTML = `<img alt="Vorschau" src="${latest.downloadURL}" />`;
     }
 
@@ -511,6 +517,9 @@
       const label = v.label || `v${activeVersions.length - idx}`;
       const created = fmtDT(v.createdAt);
       const type = v.source || "file";
+
+      const isBase = (v.downloadURL && v.downloadURL === currentBaseUrl);
+
       div.innerHTML = `
         <div class="top">
           <b>${escapeHtml(label)} • ${escapeHtml(created)}</b>
@@ -518,19 +527,47 @@
             <span class="tag">👤 ${escapeHtml(v.uploadedByName || "—")}</span>
             <span class="tag">🔎 ${escapeHtml(v.method || "manual")}</span>
             <span class="tag">🧩 ${escapeHtml(type)}</span>
+            ${isBase ? `<span class="tag" style="border-color:rgba(69,200,106,.4);color:#c9ffd8">🧷 Basis</span>` : ``}
           </span>
         </div>
+
         <div style="margin-top:10px" class="row">
-          ${v.downloadURL ? `<a class="link" target="_blank" rel="noopener" href="${v.downloadURL}">🔗 Öffnen</a>` : ""}
+          ${v.downloadURL ? `
+            <a class="link" target="_blank" rel="noopener" href="${v.downloadURL}">🔗 Öffnen</a>
+            <button class="btn secondary" type="button" data-setbase="${escapeHtml(v.downloadURL)}">🧷 Als Basis</button>
+          ` : ""}
         </div>
+
         <div class="mono" style="margin-top:10px;word-break:break-all">${escapeHtml(v.storagePath || "")}</div>
       `;
       versionsEl.appendChild(div);
     });
+
+    // Buttons je nach Basis
+    btnMeasure.disabled = !currentBaseUrl;
+    btnFreeSketch.disabled = !currentBaseUrl;
   };
 
+  // ✅ Event-Delegation: Version als Basis setzen
+  versionsEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-setbase]");
+    if (!btn) return;
+    const url = btn.getAttribute("data-setbase");
+    if (!url) return;
+
+    currentBaseUrl = url;
+    preview.innerHTML = `<img alt="Vorschau" src="${url}" />`;
+    uploadStatus.textContent = "Basis gesetzt ✅";
+
+    btnMeasure.disabled = false;
+    btnFreeSketch.disabled = false;
+
+    // rerender tags
+    renderVersions();
+  });
+
   // ============================
-  // Create new note (fix: no multi spam)
+  // Create new note
   // ============================
   $("btnNew").onclick = async () => {
     if (creating) return;
@@ -548,10 +585,7 @@
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      // select after small delay (timestamp fill)
       activeNoteId = doc.id;
-      await doc.get();
-      // we rely on notes snapshot to populate; fallback: load once
       const snap = await db.collection(COL).doc(doc.id).get();
       if (snap.exists) setActive({id:snap.id, ...snap.data()});
     }catch(e){
@@ -587,7 +621,7 @@
   };
 
   // ============================
-  // Delete note + versions (Firestore only) – Storage bleibt (v1 pragmatisch)
+  // Delete note + versions (Firestore only)
   // ============================
   btnDelete.onclick = async () => {
     if (!activeNoteId) return;
@@ -596,7 +630,6 @@
 
     btnDelete.disabled = true;
     try{
-      // delete subcollection docs
       const subSnap = await db.collection(COL).doc(activeNoteId).collection(SUB).get();
       const batch = db.batch();
       subSnap.forEach(d => batch.delete(d.ref));
@@ -614,7 +647,7 @@
       uploadStatus.textContent = "—";
       preview.innerHTML = `<span class="muted">Keine Vorschau</span>`;
       versionsEl.innerHTML = "";
-
+      currentBaseUrl = "";
     }catch(e){
       console.error(e);
       alert("Löschen fehlgeschlagen: " + (e.message || e));
@@ -663,6 +696,9 @@
       fileEl.value = "";
       btnUpload.disabled = true;
 
+      // ✅ nach Upload: neues Bild als Basis
+      currentBaseUrl = downloadURL;
+
     }catch(e){
       console.error(e);
       uploadStatus.textContent = "Upload fehlgeschlagen ❌";
@@ -673,7 +709,7 @@
   };
 
   // ============================
-  // Free sketch modal logic
+  // Free sketch modal logic (✅ nimmt Basisbild)
   // ============================
   const freeModal = $("freeModal");
   const freeCanvas = $("freeCanvas");
@@ -686,6 +722,8 @@
 
   const freeUndoStack = [];
   const freeRedoStack = [];
+
+  let freeBaseObjectUrl = ""; // zum Aufräumen
 
   const freeSnapshot = () => {
     freeUndoStack.push(fctx.getImageData(0,0,freeCanvas.width,freeCanvas.height));
@@ -706,19 +744,61 @@
     $("freeEraser").classList.toggle("active", t==="eraser");
   };
 
-  const freeOpen = () => {
+  const drawBaseToFreeCanvas = async () => {
+    const baseUrl = currentBaseUrl || activeVersions[0]?.downloadURL;
+    if (!baseUrl) return;
+
+    try {
+      // mobile-sicher via blob
+      if (freeBaseObjectUrl) URL.revokeObjectURL(freeBaseObjectUrl);
+      freeBaseObjectUrl = await fetchAsObjectUrl(baseUrl);
+
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = freeBaseObjectUrl;
+      });
+
+      const cw = freeCanvas.width, ch = freeCanvas.height;
+      const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+      const w = img.naturalWidth * scale;
+      const h = img.naturalHeight * scale;
+      const x = (cw - w) / 2;
+      const y = (ch - h) / 2;
+
+      fctx.drawImage(img, x, y, w, h);
+      $("freeHint").textContent = "Basisbild geladen ✅ (du kannst drüber skizzieren)";
+    } catch (e) {
+      console.error(e);
+      $("freeHint").textContent = "Basisbild konnte nicht geladen werden ❌";
+    }
+  };
+
+  const freeOpen = async () => {
     if (!activeNoteId) return alert("Bitte zuerst eine Notiz auswählen.");
+    const baseUrl = currentBaseUrl || activeVersions[0]?.downloadURL;
+    if (!baseUrl) return alert("Kein Basisbild vorhanden. Bitte zuerst eine Version hochladen oder als Basis setzen.");
+
     freeModal.classList.add("open");
-    // reset to transparent
     fctx.clearRect(0,0,freeCanvas.width,freeCanvas.height);
     freeUndoStack.length = 0;
     freeRedoStack.length = 0;
-    $("freeHint").textContent = "";
+    $("freeHint").textContent = "Lade Basisbild…";
     freeSetTool("pen");
+
+    await drawBaseToFreeCanvas();
   };
 
   $("btnFreeSketch").onclick = freeOpen;
-  $("freeClose").onclick = () => freeModal.classList.remove("open");
+  $("freeClose").onclick = () => {
+    freeModal.classList.remove("open");
+    if (freeBaseObjectUrl) {
+      URL.revokeObjectURL(freeBaseObjectUrl);
+      freeBaseObjectUrl = "";
+    }
+  };
+
   $("freePen").onclick = () => freeSetTool("pen");
   $("freeEraser").onclick = () => freeSetTool("eraser");
   $("freeColor").oninput = (e) => freeColor = e.target.value;
@@ -746,7 +826,6 @@
     const r = freeCanvas.getBoundingClientRect();
     const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
     const y = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
-    // scale to canvas
     const sx = freeCanvas.width / r.width;
     const sy = freeCanvas.height / r.height;
     return { x: x*sx, y: y*sy };
@@ -820,6 +899,7 @@
         source: "canvas"
       });
 
+      currentBaseUrl = downloadURL; // neue Version = Basis
       $("freeHint").textContent = "Gespeichert ✅ (neue Version erstellt)";
       freeModal.classList.remove("open");
     }catch(e){
@@ -831,30 +911,39 @@
   };
 
   // ============================
-  // Measure overlay v3.1 (Pfeil-Maßlinie)
+  // Measure overlay v3.1 (✅ nimmt Basisbild)
   // ============================
   const measureModal = $("measureModal");
   const mCanvas = $("measureCanvas");
   const mctx = mCanvas.getContext("2d");
 
-  let mTool = "select"; // select | dim | text
+  let mTool = "select";
   let mColor = $("mColor").value;
   let mWidth = parseInt($("mWidth").value,10);
   let mTextVal = $("mTextInput").value;
 
-  // objects: {type:'dim', x1,y1,x2,y2, text, color, w} or {type:'text', x,y, text, color, size}
   let mObjects = [];
   let mUndo = [];
   let mRedo = [];
   let mBaseImg = new Image();
   let mBaseLoaded = false;
 
+  let mBaseObjectUrl = "";
+
   let mDown = false;
   let mStart = null;
-  let mTemp = null; // for dim preview
-  let mSel = null;  // selected object index
-  let mDragMode = null; // 'move' | 'p1' | 'p2'
+  let mTemp = null;
+  let mSel = null;
+  let mDragMode = null;
   let mLastPos = null;
+
+  const mFitCanvasToScreen = () => {
+    const maxW = Math.min(window.innerWidth - 28, 980);
+    const maxH = Math.min(window.innerHeight - 220, 900);
+    const size = Math.max(320, Math.min(maxW, maxH));
+    mCanvas.width = size;
+    mCanvas.height = size;
+  };
 
   const mSnap = () => {
     mUndo.push(JSON.stringify(mObjects));
@@ -903,10 +992,9 @@
 
   const mOpen = async () => {
     if (!activeNoteId) return alert("Bitte zuerst eine Notiz auswählen.");
-    if (!activeVersions.length) return alert("Bitte erst eine Version (Foto) hochladen – dann Maß-Overlay.");
+    const baseUrl = currentBaseUrl || activeVersions[0]?.downloadURL;
+    if (!baseUrl) return alert("Kein Basisbild vorhanden. Bitte zuerst eine Version hochladen oder als Basis setzen.");
 
-    // base = latest image
-    const baseUrl = activeVersions[0].downloadURL;
     mBaseLoaded = false;
     mObjects = [];
     mUndo = [];
@@ -918,21 +1006,38 @@
     measureModal.classList.add("open");
     $("mHint").textContent = "Lade Bild…";
 
-    await new Promise((resolve, reject) => {
-      mBaseImg = new Image();
-      mBaseImg.crossOrigin = "anonymous";
-      mBaseImg.onload = () => { mBaseLoaded = true; resolve(); };
-      mBaseImg.onerror = reject;
-      mBaseImg.src = baseUrl;
-    });
+    try {
+      mFitCanvasToScreen();
 
-    // fit canvas: keep square canvas but draw image contained
-    renderMeasure();
-    $("mHint").textContent = "Bereit ✅ Zieh eine Maßlinie (📏 Maßlinie) und setze Maße.";
+      if (mBaseObjectUrl) URL.revokeObjectURL(mBaseObjectUrl);
+      mBaseObjectUrl = await fetchAsObjectUrl(baseUrl);
+
+      await new Promise((resolve, reject) => {
+        mBaseImg = new Image();
+        mBaseImg.onload = () => { mBaseLoaded = true; resolve(); };
+        mBaseImg.onerror = () => reject(new Error("Image load failed"));
+        mBaseImg.src = mBaseObjectUrl;
+      });
+
+      renderMeasure();
+      $("mHint").textContent = "Bereit ✅ Zieh eine Maßlinie (📏 Maßlinie) und setze Maße.";
+    } catch (e) {
+      console.error(e);
+      $("mHint").textContent = "Fehler ❌ Bild konnte nicht geladen werden.";
+      alert("Overlay konnte das Bild nicht laden (Mobile/CORS/Cache). Ich öffne das Bild im Tab.");
+      window.open(baseUrl, "_blank");
+    }
   };
 
   $("btnMeasure").onclick = mOpen;
-  $("measureClose").onclick = () => measureModal.classList.remove("open");
+
+  $("measureClose").onclick = () => {
+    measureModal.classList.remove("open");
+    if (mBaseObjectUrl) {
+      URL.revokeObjectURL(mBaseObjectUrl);
+      mBaseObjectUrl = "";
+    }
+  };
 
   const mPos = (ev) => {
     const r = mCanvas.getBoundingClientRect();
@@ -943,19 +1048,16 @@
     return { x: x*sx, y: y*sy };
   };
 
-  // hit testing
   const dist2 = (a,b) => {
     const dx=a.x-b.x, dy=a.y-b.y;
     return Math.sqrt(dx*dx+dy*dy);
   };
 
   const hitDim = (obj, p) => {
-    // near endpoints?
     const p1 = {x:obj.x1,y:obj.y1}, p2={x:obj.x2,y:obj.y2};
     if (dist2(p,p1) < 16) return { hit:true, mode:"p1" };
     if (dist2(p,p2) < 16) return { hit:true, mode:"p2" };
 
-    // near line segment
     const A = p1, B = p2;
     const ABx = B.x-A.x, ABy=B.y-A.y;
     const APx = p.x-A.x, APy=p.y-A.y;
@@ -967,7 +1069,6 @@
   };
 
   const hitText = (obj, p) => {
-    // approximate bbox around text
     const size = obj.size || 32;
     const w = Math.max(60, (obj.text||"").length * (size*0.55));
     const h = size*1.2;
@@ -975,7 +1076,6 @@
   };
 
   const pickObject = (p) => {
-    // reverse iterate (topmost last)
     for (let i=mObjects.length-1; i>=0; i--){
       const o = mObjects[i];
       if (o.type === "dim"){
@@ -988,7 +1088,17 @@
     return null;
   };
 
-  // drawing helpers
+  const roundRect = (ctx, x, y, w, h, r) => {
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  };
+
   const drawArrow = (ctx, x, y, angle, size, color) => {
     ctx.save();
     ctx.translate(x,y);
@@ -1011,7 +1121,6 @@
     const x1=o.x1, y1=o.y1, x2=o.x2, y2=o.y2;
     const ang = Math.atan2(y2-y1, x2-x1);
 
-    // line
     ctx.strokeStyle = color;
     ctx.lineWidth = w;
     ctx.lineCap = "round";
@@ -1020,11 +1129,9 @@
     ctx.lineTo(x2,y2);
     ctx.stroke();
 
-    // arrows: inward facing
     drawArrow(ctx, x1, y1, ang, size, color);
     drawArrow(ctx, x2, y2, ang + Math.PI, size, color);
 
-    // text
     const txt = (o.text || "").trim();
     if (txt){
       const mx = (x1+x2)/2;
@@ -1033,7 +1140,6 @@
       ctx.save();
       ctx.translate(mx,my);
 
-      // keep text readable: rotate with line but clamp upside-down
       let rot = ang;
       if (rot > Math.PI/2 || rot < -Math.PI/2) rot += Math.PI;
       ctx.rotate(rot);
@@ -1042,7 +1148,6 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
 
-      // small shadow box
       const padX = 10, padY = 6;
       const metrics = ctx.measureText(txt);
       const bw = metrics.width + padX*2;
@@ -1058,17 +1163,6 @@
     }
   };
 
-  const roundRect = (ctx, x, y, w, h, r) => {
-    const rr = Math.min(r, w/2, h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr, y);
-    ctx.arcTo(x+w, y, x+w, y+h, rr);
-    ctx.arcTo(x+w, y+h, x, y+h, rr);
-    ctx.arcTo(x, y+h, x, y, rr);
-    ctx.arcTo(x, y, x+w, y, rr);
-    ctx.closePath();
-  };
-
   const drawText = (ctx, o) => {
     const color = o.color || "#fff";
     const size = o.size || 36;
@@ -1079,7 +1173,6 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // background pill
     const m = ctx.measureText(txt);
     const w = m.width + 28;
     const h = size*1.15;
@@ -1097,23 +1190,17 @@
     ctx.strokeStyle = "rgba(69,200,106,.8)";
     ctx.lineWidth = 3;
     if (o.type==="dim"){
-      ctx.beginPath();
-      ctx.arc(o.x1,o.y1,10,0,Math.PI*2); ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(o.x2,o.y2,10,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(o.x1,o.y1,10,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(o.x2,o.y2,10,0,Math.PI*2); ctx.stroke();
     } else if (o.type==="text"){
-      ctx.beginPath();
-      ctx.arc(o.x,o.y,10,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(o.x,o.y,10,0,Math.PI*2); ctx.stroke();
     }
     ctx.restore();
   };
 
   const drawBaseImageContained = (ctx, img) => {
-    // draw image contained inside canvas
     const cw = ctx.canvas.width, ch = ctx.canvas.height;
     ctx.clearRect(0,0,cw,ch);
-
-    // dark bg
     ctx.fillStyle = "rgba(0,0,0,.18)";
     ctx.fillRect(0,0,cw,ch);
 
@@ -1123,8 +1210,6 @@
     const x = (cw - w)/2;
     const y = (ch - h)/2;
     ctx.drawImage(img, x, y, w, h);
-
-    // store transform to map points if needed later (currently we draw in canvas space)
     return { x, y, w, h, scale };
   };
 
@@ -1133,18 +1218,12 @@
   const renderMeasure = () => {
     if (!mBaseLoaded) return;
     baseBox = drawBaseImageContained(mctx, mBaseImg);
-
-    // objects
     mObjects.forEach((o, idx) => {
       if (o.type==="dim") drawDim(mctx, o);
       if (o.type==="text") drawText(mctx, o);
       if (idx === mSel) drawSelection(mctx, o);
     });
-
-    // temp
-    if (mTemp && mTemp.type==="dim"){
-      drawDim(mctx, mTemp);
-    }
+    if (mTemp && mTemp.type==="dim") drawDim(mctx, mTemp);
   };
 
   const mDownFn = (ev) => {
@@ -1198,10 +1277,8 @@
       const o = mObjects[mSel];
       const dx = p.x - mLastPos.x;
       const dy = p.y - mLastPos.y;
-
       if (!dx && !dy) return;
 
-      // snapshot on first move
       if (mLastPos === mStart) mSnap();
 
       if (o.type==="dim"){
@@ -1213,8 +1290,6 @@
         } else if (mDragMode==="p2"){
           o.x2 = p.x; o.y2 = p.y;
         }
-        // update text live from input if user changes (optional)
-        // o.text = (mTextVal||o.text||"").trim();
       } else if (o.type==="text"){
         o.x += dx; o.y += dy;
       }
@@ -1229,11 +1304,9 @@
     mDown = false;
 
     if (mTool==="dim" && mTemp){
-      // finalize
       const len = Math.hypot(mTemp.x2-mTemp.x1, mTemp.y2-mTemp.y1);
       if (len > 8){
         mSnap();
-        // if no text in field, keep empty; user can add by selecting and re-typing later in v3.2
         mTemp.text = (mTextVal||mTemp.text||"").trim();
         mObjects.push(mTemp);
         mSel = mObjects.length-1;
@@ -1259,7 +1332,6 @@
     $("mHint").textContent = "Exportiere PNG & lade als neue Version hoch…";
 
     try{
-      // render already on canvas; export blob
       const blob = await new Promise(res => mCanvas.toBlob(res, "image/png", 0.92));
       if (!blob) throw new Error("PNG konnte nicht erzeugt werden.");
 
@@ -1278,9 +1350,10 @@
         uploadedByName: uploaderEl.value.trim() || ("für " + BV.name),
         method: "manual",
         source: "measure-overlay",
-        objects: mObjects // optional: später für editierbares reopen
+        objects: mObjects
       });
 
+      currentBaseUrl = downloadURL;
       $("mHint").textContent = "Gespeichert ✅ (Overlay als neue Version)";
       measureModal.classList.remove("open");
     }catch(e){
@@ -1295,7 +1368,6 @@
   // Misc
   // ============================
   $("btnRefresh").onclick = () => {
-    // force redraw + re-render
     renderList();
     renderVersions();
     uploadStatus.textContent = "Aktualisiert ✅";
